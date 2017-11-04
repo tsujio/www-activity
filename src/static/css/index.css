@@ -1,0 +1,12 @@
+body {
+    padding: 1em 2em;
+}
+
+article {
+    border-top: 1px solid silver;
+    clear: both;
+}
+
+article > p.pubdate {
+    float: right;
+}
