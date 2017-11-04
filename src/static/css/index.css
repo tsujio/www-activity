@@ -2,11 +2,20 @@ body {
     padding: 1em 2em;
 }
 
+.new-activity-link {
+    float: right;
+}
+
 article {
+    margin-top: 1rem;
     border-top: 1px solid silver;
     clear: both;
 }
 
 article > p.pubdate {
     float: right;
+}
+
+.clearfix {
+    clear: both;
 }

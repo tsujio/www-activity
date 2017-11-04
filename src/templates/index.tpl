@@ -8,6 +8,11 @@
   <body>
     <h1>活動記録</h1>
 
+    <div>
+      <a href="/new" class="new-activity-link">新しい活動記録</a>
+      <div class="clearfix"></div>
+    </div>
+
     {{ range . }}
       <article>
         <p class="pubdate"><time datetime="{{ .Date }}">{{ .Date }}</time></p>
