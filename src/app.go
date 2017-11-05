@@ -33,6 +33,11 @@ type ActivityEditContext struct {
 	Error string
 }
 
+type GitHubFileContent struct {
+	Content string `json:"content"`
+	SHA string `json:"sha"`
+}
+
 func main() {
 	// Get application folder
 	app, err := os.Executable()
@@ -175,24 +180,25 @@ func main() {
 			}
 		}
 
-		// Check file does not exist
-		filename := string(date) + ".md"
-		path := filepath.Join(dataPath, filename)
-		_, err := os.Stat(path)
-		if err == nil { // if file exists
-			date, err := time.Parse("20060102", string(date))
-			if err != nil {
-				date = time.Now()
-			}
-			retryEdit(date, title, body, "Specified date already exists.")
-			return
-		}
-
+		path := filepath.Join(dataPath, date + ".md")
 		body = "# " + title + "\n\n" + body
 
-		// Commit to GitHub
-		commitActivityToGitHub(date, body)
+		// Add or update activity
+		contentOnGitHub := getActivityFromGitHub(date)
+		if contentOnGitHub == nil {
+			// Add new activity
+			commitActivityToGitHub(date, body)
+		} else {
+			// Update existing activity
+			content, err := base64.StdEncoding.DecodeString(contentOnGitHub.Content)
+			if err != nil {
+				log.Fatal(err)
+			}
+			body = string(content) + "\n\n" + body
+			updateActivityOnGitHub(date, body, contentOnGitHub.SHA)
+		}
 
+		// Save content to local file
 		err = ioutil.WriteFile(path, []byte(body), os.ModePerm)
 		if err != nil {
 			log.Fatal(err)
@@ -207,6 +213,80 @@ func main() {
 		port = "80"
 	}
 	log.Fatal(http.ListenAndServe(":" + port, nil))
+}
+
+func getActivityFromGitHub(date string) *GitHubFileContent {
+	// Set API endpoint
+	url := fmt.Sprintf(
+		"https://tsujio:%s@api.github.com/repos/tsujio/www-activity/contents/src/data/%s.md",
+		os.Getenv("GITHUB_TOKEN"),
+		date,
+	)
+
+	// Call API
+	resp, err := http.Get(url)
+	if err != nil {
+		log.Fatal(err)
+	}
+	if resp.StatusCode == http.StatusNotFound {
+		return nil
+	}
+	b, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Parse json
+	var content GitHubFileContent
+	err = json.Unmarshal(b, &content)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return &content
+}
+
+func updateActivityOnGitHub(date string, body string, sha string) {
+	// Set API endpoint
+	url := fmt.Sprintf(
+		"https://tsujio:%s@api.github.com/repos/tsujio/www-activity/contents/src/data/%s.md",
+		os.Getenv("GITHUB_TOKEN"),
+		date,
+	)
+
+	// Create request body
+	json, err := json.Marshal(&struct {
+		Message string `json:"message"`
+		Content string `json:"content"`
+		SHA string `json:"sha"`
+	} {
+		"Update activity",
+		base64.StdEncoding.EncodeToString([]byte(body)),
+		sha,
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Create request
+	client := &http.Client{}
+	req, err := http.NewRequest(http.MethodPut, url, bytes.NewBuffer(json))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Call API
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Fatal(err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		b, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			log.Fatal(err)
+		}
+		log.Fatal(string(b))
+	}
 }
 
 func commitActivityToGitHub(date string, body string) {
