@@ -16,6 +16,10 @@ article > p.pubdate {
     float: right;
 }
 
+article img {
+    width: 80%;
+}
+
 .clearfix {
     clear: both;
 }
