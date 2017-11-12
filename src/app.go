@@ -50,10 +50,15 @@ func main() {
 	staticPath := filepath.Join(appPath, "static")
 	templatePath := filepath.Join(appPath, "templates")
 	dataPath := filepath.Join(appPath, "data")
+	imgPath := filepath.Join(dataPath, "img")
 
 	// Configuration for serving static files
 	http.Handle("/static/",
 		http.StripPrefix("/static/", http.FileServer(http.Dir(staticPath))))
+
+	// Configuration for serving activity img files
+	http.Handle("/img/",
+		http.StripPrefix("/img/", http.FileServer(http.Dir(imgPath))))
 
 	// Show activities
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -67,6 +72,16 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
+
+		// Filter by filename (valid format: YYYYMMDD.md)
+		filteredFiles := make([]os.FileInfo, 0)
+		re := regexp.MustCompile(`^\d{4}\d{2}\d{2}\.md$`)
+		for _, file := range files {
+			if re.MatchString(file.Name()) {
+				filteredFiles = append(filteredFiles, file)
+			}
+		}
+		files = filteredFiles
 
 		// Sort by file name (YYYYMMDD.md)
 		sort.Slice(files, func(i, j int) bool {
